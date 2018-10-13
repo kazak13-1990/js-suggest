@@ -1,0 +1,38 @@
+.suggest-input {
+  position: relative; }
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 18px;
+  border: 1px solid #cecece; }
+
+.suggest-block {
+  box-sizing: border-box;
+  overflow: auto;
+  position: absolute;
+  z-index: 100;
+  width: 100%;
+  max-height: 70vh;
+  margin: 1px 0 0;
+  padding: 0;
+  list-style: none;
+  background-color: #fff;
+  border: 1px solid #cecece;
+  border-top-width: 0; }
+
+.suggest-item {
+  padding: 6px 10px;
+  font-size: 18px;
+  line-height: 16px; }
+
+.suggest-item:hover {
+  background-color: #dadada;
+  cursor: pointer; }
+
+.suggest-item.isActive {
+  background-color: #dadada; }
+body {
+  padding: 40px; }
