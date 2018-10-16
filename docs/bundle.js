@@ -9076,6 +9076,8 @@ Object.defineProperty(exports, "__esModule", {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
+var _handlerActions;
+
 var _closestPolyfill = __webpack_require__(330);
 
 var _closestPolyfill2 = _interopRequireDefault(_closestPolyfill);
@@ -9092,14 +9094,33 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 var MAX_SUGGEST_COUNT = 10;
 var DEFAULT_ITEM_INDEX = -1;
 var handleKeys = {
     keyUp: 38,
     keyDown: 40,
-    enter: 13
+    enter: 13,
+    esc: 27
 };
 var noop = function noop() {};
+
+var handlerActions = (_handlerActions = {}, _defineProperty(_handlerActions, handleKeys.keyUp, function () {
+    var activeItemIndex = this.activeItemIndex;
+
+    this.selectSuggestItemWithCheck(activeItemIndex - 1);
+}), _defineProperty(_handlerActions, handleKeys.keyDown, function () {
+    var activeItemIndex = this.activeItemIndex;
+
+    this.selectSuggestItemWithCheck(activeItemIndex + 1);
+}), _defineProperty(_handlerActions, handleKeys.enter, function () {
+    var activeItemIndex = this.activeItemIndex;
+
+    this.onSelectSuggest(activeItemIndex);
+}), _defineProperty(_handlerActions, handleKeys.esc, function () {
+    this.onBlur();
+}), _handlerActions);
 
 var SuggestInput = function () {
     function SuggestInput() {
@@ -9180,39 +9201,65 @@ var SuggestInput = function () {
             return search;
         }()
     }, {
-        key: 'renderSuggests',
-        value: function renderSuggests() {
+        key: 'createSuggestElement',
+        value: function createSuggestElement(_ref2) {
+            var isActive = _ref2.isActive,
+                suggestItem = _ref2.suggestItem,
+                onSelect = _ref2.onSelect;
+
+            var suggestElement = document.createElement('li');
+            var classes = isActive ? 'suggest-item isActive' : 'suggest-item';
+            suggestElement.setAttribute('class', classes);
+            suggestElement.onclick = function (event) {
+                event.stopPropagation();
+                onSelect();
+            };
+            suggestElement.innerHTML = '<div>' + suggestItem.title + '</div>';
+            return suggestElement;
+        }
+    }, {
+        key: 'getSuggestElements',
+        value: function getSuggestElements() {
             var _this = this;
 
             var activeItemIndex = this.activeItemIndex;
 
 
-            this.suggestContainer.innerHTML = '';
-            this.suggestResults.forEach(function (suggestItem, index) {
-                var suggestElement = document.createElement('li');
-                if (index === activeItemIndex) {
-                    suggestElement.setAttribute('class', 'suggest-item isActive');
-                } else {
-                    suggestElement.setAttribute('class', 'suggest-item');
-                }
-                suggestElement.onclick = function (event) {
-                    event.stopPropagation();
-                    _this.onSelectSuggest(index);
-                };
-                suggestElement.innerHTML = '<div>' + suggestItem.title + '</div>';
-                _this.suggestContainer.appendChild(suggestElement);
+            var suggestElements = this.suggestResults.map(function (suggestItem, index) {
+                var isActive = index === activeItemIndex;
+                var suggestElement = _this.createSuggestElement({
+                    isActive: isActive,
+                    suggestItem: suggestItem,
+                    onSelect: function onSelect() {
+                        return _this.onSelectSuggest(index);
+                    }
+                });
+                return suggestElement;
             });
+            return suggestElements;
+        }
+    }, {
+        key: 'renderSuggests',
+        value: function renderSuggests() {
+            var _this2 = this;
 
-            if (this.suggestResults.length > 0) {
+            if (this.suggestResults.length === 0) {
+                if (this.suggestContainer.parentNode) {
+                    this.suggestContainer.parentNode.removeChild(this.suggestContainer);
+                }
+            } else {
+                this.suggestContainer.innerHTML = '';
+                var suggestElements = this.getSuggestElements();
+                suggestElements.forEach(function (suggestElement) {
+                    return _this2.suggestContainer.appendChild(suggestElement);
+                });
                 this.rootContainer.appendChild(this.suggestContainer);
-            } else if (this.suggestContainer.parentNode) {
-                this.suggestContainer.parentNode.removeChild(this.suggestContainer);
             }
         }
     }, {
         key: 'searchAndRenderSuggest',
         value: function () {
-            var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(value) {
+            var _ref3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(value) {
                 return regeneratorRuntime.wrap(function _callee2$(_context2) {
                     while (1) {
                         switch (_context2.prev = _context2.next) {
@@ -9234,7 +9281,7 @@ var SuggestInput = function () {
             }));
 
             function searchAndRenderSuggest(_x4) {
-                return _ref2.apply(this, arguments);
+                return _ref3.apply(this, arguments);
             }
 
             return searchAndRenderSuggest;
@@ -9261,9 +9308,20 @@ var SuggestInput = function () {
             }
         }
     }, {
+        key: 'selectSuggestItemWithCheck',
+        value: function selectSuggestItemWithCheck(newActiveItem) {
+            var suggestResults = this.suggestResults;
+
+            if (suggestResults.length === 0) {
+                this.searchAndRenderSuggest(this.inputValue);
+            } else {
+                this.selectSuggestItem(newActiveItem);
+            }
+        }
+    }, {
         key: 'onChange',
         value: function () {
-            var _ref3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(event) {
+            var _ref4 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(event) {
                 var value, currSearchCount;
                 return regeneratorRuntime.wrap(function _callee3$(_context3) {
                     while (1) {
@@ -9293,7 +9351,7 @@ var SuggestInput = function () {
             }));
 
             function onChange(_x5) {
-                return _ref3.apply(this, arguments);
+                return _ref4.apply(this, arguments);
             }
 
             return onChange;
@@ -9301,34 +9359,21 @@ var SuggestInput = function () {
     }, {
         key: 'onKeyPress',
         value: function () {
-            var _ref4 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(event) {
-                var activeItemIndex, suggestResults, keyCode;
+            var _ref5 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(event) {
+                var keyCode, action;
                 return regeneratorRuntime.wrap(function _callee4$(_context4) {
                     while (1) {
                         switch (_context4.prev = _context4.next) {
                             case 0:
-                                activeItemIndex = this.activeItemIndex, suggestResults = this.suggestResults;
                                 keyCode = event.keyCode || event.which;
+                                action = handlerActions[keyCode];
 
-
-                                if (keyCode === handleKeys.keyDown) {
+                                if (action) {
                                     event.preventDefault();
-                                    if (suggestResults.length === 0) {
-                                        this.searchAndRenderSuggest(this.inputValue);
-                                    } else {
-                                        this.selectSuggestItem(activeItemIndex + 1);
-                                    }
-                                }
-                                if (keyCode === handleKeys.keyUp) {
-                                    event.preventDefault();
-                                    this.selectSuggestItem(activeItemIndex - 1);
-                                }
-                                if (keyCode === handleKeys.enter) {
-                                    event.preventDefault();
-                                    this.onSelectSuggest(activeItemIndex);
+                                    action.call(this);
                                 }
 
-                            case 5:
+                            case 3:
                             case 'end':
                                 return _context4.stop();
                         }
@@ -9337,7 +9382,7 @@ var SuggestInput = function () {
             }));
 
             function onKeyPress(_x6) {
-                return _ref4.apply(this, arguments);
+                return _ref5.apply(this, arguments);
             }
 
             return onKeyPress;

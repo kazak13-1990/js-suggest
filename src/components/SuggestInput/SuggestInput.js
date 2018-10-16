@@ -9,8 +9,27 @@ const handleKeys = {
     keyUp: 38,
     keyDown: 40,
     enter: 13,
+    esc: 27,
 };
 const noop = () => {};
+
+const handlerActions = {
+    [handleKeys.keyUp]: function() {
+        const {activeItemIndex} = this;
+        this.selectSuggestItemWithCheck(activeItemIndex - 1);
+    },
+    [handleKeys.keyDown]: function() {
+        const {activeItemIndex} = this;
+        this.selectSuggestItemWithCheck(activeItemIndex + 1);
+    },
+    [handleKeys.enter]: function() {
+        const {activeItemIndex} = this;
+        this.onSelectSuggest(activeItemIndex);
+    },
+    [handleKeys.esc]: function() {
+        this.onBlur();
+    },
+};
 
 export default class SuggestInput{
     constructor(onAction = noop, maxSuggestCount = MAX_SUGGEST_COUNT) {
@@ -51,29 +70,43 @@ export default class SuggestInput{
         return suggestResults;
     }
 
-    renderSuggests() {
+    createSuggestElement({isActive, suggestItem, onSelect}) {
+        const suggestElement = document.createElement('li');
+        const classes = isActive ? 'suggest-item isActive' : 'suggest-item';
+        suggestElement.setAttribute('class', classes);
+        suggestElement.onclick = (event) => {
+            event.stopPropagation();
+            onSelect();
+        };
+        suggestElement.innerHTML = `<div>${suggestItem.title}</div>`;
+        return suggestElement;
+    }
+
+    getSuggestElements() {
         const {activeItemIndex} = this;
 
-        this.suggestContainer.innerHTML = '';
-        this.suggestResults.forEach((suggestItem, index) => {
-            const suggestElement = document.createElement('li');
-            if (index === activeItemIndex) {
-                suggestElement.setAttribute('class', 'suggest-item isActive');
-            } else {
-                suggestElement.setAttribute('class', 'suggest-item');
-            }
-            suggestElement.onclick = (event) => {
-                event.stopPropagation();
-                this.onSelectSuggest(index);
-            };
-            suggestElement.innerHTML = `<div>${suggestItem.title}</div>`;
-            this.suggestContainer.appendChild(suggestElement);
+        const suggestElements = this.suggestResults.map((suggestItem, index) => {
+            const isActive = (index === activeItemIndex);
+            const suggestElement = this.createSuggestElement({
+                isActive,
+                suggestItem,
+                onSelect: () => this.onSelectSuggest(index),
+            });
+            return suggestElement;
         });
+        return suggestElements;
+    }
 
-        if (this.suggestResults.length > 0) {
+    renderSuggests() {
+        if (this.suggestResults.length === 0) {
+            if (this.suggestContainer.parentNode) {
+                this.suggestContainer.parentNode.removeChild(this.suggestContainer);
+            }
+        } else {
+            this.suggestContainer.innerHTML = '';
+            const suggestElements = this.getSuggestElements();
+            suggestElements.forEach(suggestElement => this.suggestContainer.appendChild(suggestElement));
             this.rootContainer.appendChild(this.suggestContainer);
-        } else if (this.suggestContainer.parentNode) {
-            this.suggestContainer.parentNode.removeChild(this.suggestContainer);
         }
     }
 
@@ -101,6 +134,15 @@ export default class SuggestInput{
         }
     };
 
+    selectSuggestItemWithCheck(newActiveItem) {
+        const {suggestResults} = this;
+        if (suggestResults.length === 0) {
+            this.searchAndRenderSuggest(this.inputValue);
+        } else {
+            this.selectSuggestItem(newActiveItem);
+        }
+    }
+
     async onChange(event){
         const value = event.target.value;
         this.inputValue = value;
@@ -114,24 +156,12 @@ export default class SuggestInput{
     }
 
     async onKeyPress(event) {
-        const {activeItemIndex, suggestResults} = this;
         const keyCode = event.keyCode || event.which;
 
-        if (keyCode === handleKeys.keyDown) {
+        const action = handlerActions[keyCode];
+        if (action) {
             event.preventDefault();
-            if (suggestResults.length === 0) {
-                this.searchAndRenderSuggest(this.inputValue);
-            } else {
-                this.selectSuggestItem(activeItemIndex + 1);
-            }
-        }
-        if (keyCode === handleKeys.keyUp) {
-            event.preventDefault();
-            this.selectSuggestItem(activeItemIndex - 1);
-        }
-        if (keyCode === handleKeys.enter) {
-            event.preventDefault();
-            this.onSelectSuggest(activeItemIndex);
+            action.call(this);
         }
     };
 
